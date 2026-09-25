@@ -18,7 +18,9 @@ struct MixerView: View {
                 Image(systemName: "speaker.wave.3.fill")
                     .frame(width: 28)
                 Slider(value: $model.masterVolume)
+                    .disabled(!model.canChangeMasterVolume)
             }
+            .help(model.canChangeMasterVolume ? "全体音量" : "この出力デバイスは音量を変更できません")
  
             Divider()
  

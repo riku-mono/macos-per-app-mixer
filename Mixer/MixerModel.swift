@@ -5,6 +5,7 @@
 
 
 import AppKit
+import CoreAudio
 import Observation
  
 /// アプリ配下の個別の音源（Chrome のタブなど。今はダミー）
@@ -35,16 +36,46 @@ struct AudioApp: Identifiable {
 @MainActor
 @Observable
 final class MixerModel {
-    var masterVolume: Double = 0.6
-    var apps: [AudioApp]
+    /// 全体音量。既定の出力デバイスの音量と連動する
+    var masterVolume: Double = 0.6 {
+        didSet {
+            if controlsDevices { OutputDevice.volume = masterVolume }
+        }
+    }
+    /// 出力デバイスが音量変更に対応しているか（HDMI などは非対応）
+    private(set) var canChangeMasterVolume = true
 
+    /// 今音を出しているアプリ
+    var apps: [AudioApp] = [] {
+        didSet { syncTaps() }
+    }
+
+    // プレビュー中に本物の Mac の音量を変えないためのフラグ
+    @ObservationIgnored private var controlsDevices = false
     @ObservationIgnored private var monitor: AudioProcessMonitor?
-    // 一度消えたアプリの音量・ミュートを、再び音を出したときに復元するための控え
-    @ObservationIgnored private var remembered: [String: AudioApp] = [:]
+    @ObservationIgnored private var outputObserver: OutputDevice.Observer?
+    @ObservationIgnored private let taps = AppVolumeTapManager()
+    // アプリごとの音量・ミュート設定。一覧から消えても保持し、再び音を出したときに復元する
+    @ObservationIgnored private var settings: [String: AudioApp] = [:]
+    // アプリID → Core Audio のプロセスオブジェクト（音を出していないものも含む）
+    @ObservationIgnored private var processes: [String: [AudioObjectID]] = [:]
 
-    /// 実際に音を出しているアプリを Core Audio から検出する
+    /// 実際に音を出しているアプリを Core Audio から検出し、音量を制御する
     init() {
-        apps = []
+        controlsDevices = true
+        readMasterVolume()
+
+        outputObserver = OutputDevice.observe(
+            onDeviceChange: { [weak self] in
+                guard let self else { return }
+                readMasterVolume()
+                taps.outputDeviceChanged(gains: gains, processes: processes)
+            },
+            onVolumeChange: { [weak self] in
+                self?.readMasterVolume()
+            }
+        )
+
         let monitor = AudioProcessMonitor()
         monitor.onChange = { [weak self] detected in
             self?.update(with: detected)
@@ -71,9 +102,33 @@ final class MixerModel {
     }
 
     private func update(with detected: [DetectedAudioApp]) {
+        processes = Dictionary(uniqueKeysWithValues: detected.map { ($0.id, $0.processObjectIDs) })
+        apps = detected
+            .filter(\.isOutputting)
+            .map { settings[$0.id] ?? AudioApp(id: $0.id, name: $0.name) }
+    }
+
+    private var gains: [String: Float] {
+        settings.mapValues { $0.isMuted ? 0 : Float($0.volume) }
+    }
+
+    private func syncTaps() {
         for app in apps {
-            remembered[app.id] = app
+            settings[app.id] = app
         }
-        apps = detected.map { remembered[$0.id] ?? AudioApp(id: $0.id, name: $0.name) }
+        taps.sync(gains: gains, processes: processes)
+    }
+
+    /// 音量キーなど、外で変わった音量をスライダーに反映する
+    private func readMasterVolume() {
+        guard let volume = OutputDevice.volume else {
+            canChangeMasterVolume = false
+            return
+        }
+        canChangeMasterVolume = true
+        // 同じ値を書き戻して通知が往復し続けないよう、変化があるときだけ代入する
+        if abs(volume - masterVolume) > 0.001 {
+            masterVolume = volume
+        }
     }
 }

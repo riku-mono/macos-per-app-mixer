@@ -8,13 +8,15 @@ import CoreAudio
 import Darwin
 import os
 
-/// 音を出しているアプリ1つ分（Helper などの補助プロセスは親アプリにまとめ済み）
+/// Core Audio に登録されているアプリ1つ分（Helper などの補助プロセスは親アプリにまとめ済み）
 struct DetectedAudioApp: Equatable {
     let id: String    // 親アプリのバンドルID（取れなければプロセス自身のバンドルID）
     let name: String
+    var processObjectIDs: [AudioObjectID] = []
+    var isOutputting = false  // いずれかのプロセスが音を出しているか
 }
 
-/// Core Audio のプロセス一覧を監視し、音声を出力中のアプリが変わるたびに onChange で通知する
+/// Core Audio のプロセス一覧を監視し、プロセスの増減や再生の開始／停止のたびに onChange で通知する
 final class AudioProcessMonitor {
     var onChange: (([DetectedAudioApp]) -> Void)?
 
@@ -38,7 +40,8 @@ final class AudioProcessMonitor {
 
     func refresh() {
         guard let listener else { return }
-        let processes = Self.processObjectIDs()
+        // ID 順に並べておくと、アプリごとのプロセス構成が変わったかを配列の比較で判定できる
+        let processes = Self.processObjectIDs().sorted()
 
         // 新しく現れたプロセスは「再生の開始／停止」も監視する。
         // IsRunningOutput は変化しても通知が来ないことがあるため、IsRunning も併せて監視する
@@ -50,17 +53,20 @@ final class AudioProcessMonitor {
         }
         watchedProcesses = Set(processes)
 
-        var result: [DetectedAudioApp] = []
-        for id in processes where Self.isRunningOutput(id) {
+        var appsByID: [String: DetectedAudioApp] = [:]
+        for id in processes {
             guard let pid = Self.pid(of: id), pid != getpid() else { continue }
-            let app = Self.resolveApp(pid: pid, fallbackBundleID: Self.bundleID(of: id))
-            if !result.contains(where: { $0.id == app.id }) {
-                result.append(app)
+            let resolved = Self.resolveApp(pid: pid, fallbackBundleID: Self.bundleID(of: id))
+            var app = appsByID[resolved.id] ?? resolved
+            app.processObjectIDs.append(id)
+            if Self.isRunningOutput(id) {
+                app.isOutputting = true
             }
+            appsByID[resolved.id] = app
         }
-        result.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        let result = appsByID.values.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 
-        logger.debug("音声出力中: \(result.map(\.id), privacy: .public)")
+        logger.debug("音声出力中: \(result.filter(\.isOutputting).map(\.id), privacy: .public)")
         onChange?(result)
     }
 
