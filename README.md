@@ -75,7 +75,7 @@ Chrome 拡張（ChromeExtension/）
 
 ## デバッグ
 
-ログは Console.app（または Xcode のコンソール）で、サブシステム `io.github.riku-mono.Mixer` とカテゴリで絞り込めます。
+ログは Console.app（または Xcode のコンソール）で、サブシステム `me.riku-mono.Mixer` とカテゴリで絞り込めます。
 
 | カテゴリ | 内容 |
 | --- | --- |
