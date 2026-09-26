@@ -37,8 +37,14 @@ struct MixerView: View {
 
             Divider()
 
-            // フッター（F-07）
+            // フッター
             HStack {
+                Toggle("ログイン時に起動", isOn: Binding(
+                    get: { model.launchAtLogin },
+                    set: { model.setLaunchAtLogin($0) }
+                ))
+                .toggleStyle(.checkbox)
+                .font(.caption)
                 Spacer()
                 Button("終了") {
                     NSApplication.shared.terminate(nil)
@@ -49,6 +55,7 @@ struct MixerView: View {
         }
         .padding()
         .frame(width: 300)
+        .onAppear { model.refreshLaunchAtLogin() }
     }
 }
  

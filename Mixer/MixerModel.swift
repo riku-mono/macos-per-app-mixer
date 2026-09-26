@@ -50,19 +50,25 @@ final class MixerModel {
         didSet { syncTaps() }
     }
 
-    // プレビュー中に本物の Mac の音量を変えないためのフラグ
+    /// ログイン時に自動で起動するか
+    private(set) var launchAtLogin = false
+
+    // プレビュー中に本物の Mac の音量や保存した設定を変えないためのフラグ
     @ObservationIgnored private var controlsDevices = false
     @ObservationIgnored private var monitor: AudioProcessMonitor?
     @ObservationIgnored private var outputObserver: OutputDevice.Observer?
     @ObservationIgnored private let taps = AppVolumeTapManager()
-    // アプリごとの音量・ミュート設定。一覧から消えても保持し、再び音を出したときに復元する
-    @ObservationIgnored private var settings: [String: AudioApp] = [:]
+    // アプリごとの音量・ミュート設定。一覧から消えても保持し、再び音を出したときに復元する。
+    // 100%・ミュートなしのアプリは持たない
+    @ObservationIgnored private var settings: [String: AppSetting] = [:]
     // アプリID → Core Audio のプロセスオブジェクト（音を出していないものも含む）
     @ObservationIgnored private var processes: [String: [AudioObjectID]] = [:]
 
     /// 実際に音を出しているアプリを Core Audio から検出し、音量を制御する
     init() {
         controlsDevices = true
+        settings = SettingsStore.load()
+        launchAtLogin = LaunchAtLogin.isEnabled
         readMasterVolume()
 
         outputObserver = OutputDevice.observe(
@@ -105,7 +111,24 @@ final class MixerModel {
         processes = Dictionary(uniqueKeysWithValues: detected.map { ($0.id, $0.processObjectIDs) })
         apps = detected
             .filter(\.isOutputting)
-            .map { settings[$0.id] ?? AudioApp(id: $0.id, name: $0.name) }
+            .map { detected in
+                var app = AudioApp(id: detected.id, name: detected.name)
+                if let setting = settings[detected.id] {
+                    app.volume = setting.volume
+                    app.isMuted = setting.isMuted
+                }
+                return app
+            }
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        LaunchAtLogin.set(enabled)
+        refreshLaunchAtLogin()
+    }
+
+    /// システム設定側で変えられることもあるので、パネルを開くたびに読み直す
+    func refreshLaunchAtLogin() {
+        launchAtLogin = LaunchAtLogin.isEnabled
     }
 
     private var gains: [String: Float] {
@@ -113,8 +136,16 @@ final class MixerModel {
     }
 
     private func syncTaps() {
+        guard controlsDevices else { return }
+
+        var newSettings = settings
         for app in apps {
-            settings[app.id] = app
+            let setting = AppSetting(volume: app.volume, isMuted: app.isMuted)
+            newSettings[app.id] = setting.isDefault ? nil : setting
+        }
+        if newSettings != settings {
+            settings = newSettings
+            SettingsStore.save(settings)
         }
         taps.sync(gains: gains, processes: processes)
     }
