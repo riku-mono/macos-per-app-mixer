@@ -1,3 +1,5 @@
+<img src="docs/icon.png" width="128" alt="Mixer のアイコン">
+
 # macos-per-app-mixer
 
 アプリごとに音量を調整できる、メニューバー常駐の macOS アプリです。
@@ -65,6 +67,7 @@ Chrome 拡張（ChromeExtension/）
 | `ChromeExtensionInstaller.swift` | 同梱の Chrome 拡張を書き出し、読み込みを案内する |
 | `Settings.swift` | 設定の保存（UserDefaults）とログイン時の自動起動（SMAppService） |
 | `MixerModel.swift` / `MixerView.swift` | 状態管理と UI |
+| `AppIcon.icon` | アプリのアイコン（Icon Composer で開ける。Chrome 拡張と README 用の PNG はここから書き出す） |
 
 - 音量 100%・ミュートなしのアプリには Tap を作らないので、遅延も負荷も増えません
 - ミュートしたアプリは Tap だけで消音し、音量を下げたアプリも音を出している間だけ処理を動かします

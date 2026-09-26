@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- つまみから下の音量レベル。アプリごとに色を変える（Maps の緑・黄・ピンク） -->
+  <rect x="272" y="620" width="56" height="214" rx="28" fill="#4CE05A"/>
+  <rect x="484" y="350" width="56" height="484" rx="28" fill="#FFC928"/>
+  <rect x="696" y="520" width="56" height="314" rx="28" fill="#FF5FB4"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- 3本のフェーダーの溝 -->
+  <g fill="#FFFFFF" fill-opacity="0.3">
+    <rect x="272" y="190" width="56" height="644" rx="28"/>
+    <rect x="484" y="190" width="56" height="644" rx="28"/>
+    <rect x="696" y="190" width="56" height="644" rx="28"/>
+  </g>
+</svg>

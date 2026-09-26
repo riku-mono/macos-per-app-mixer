@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- 手前: 高さの違う3つのガラスのつまみ。下のレベルの色が透ける -->
+  <g fill="#FFFFFF">
+    <rect x="195" y="566" width="210" height="108" rx="44"/>
+    <rect x="407" y="296" width="210" height="108" rx="44"/>
+    <rect x="619" y="466" width="210" height="108" rx="44"/>
+  </g>
+</svg>
