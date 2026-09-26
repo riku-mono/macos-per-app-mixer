@@ -7,6 +7,7 @@
 import AppKit
 import CoreAudio
 import Observation
+import os
  
 /// アプリ配下の個別の音源（Chrome のタブ。Chrome 拡張から届く）
 struct AudioTab: Identifiable, Equatable {
@@ -36,7 +37,11 @@ struct AudioApp: Identifiable {
 @MainActor
 @Observable
 final class MixerModel {
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Mixer", category: "model")
+
     static let chromeID = "com.google.Chrome"
+    /// 音が止まってからも一覧に残し、音量調整を動かし続ける秒数（一時停止してすぐ再生しても行が消えないように）
+    static let idleGracePeriod: TimeInterval = 10
 
     /// 全体音量。既定の出力デバイスの音量と連動する
     var masterVolume: Double = 0.6 {
@@ -69,6 +74,9 @@ final class MixerModel {
     // アプリID → Core Audio のプロセスオブジェクト（音を出していないものも含む）
     @ObservationIgnored private var processes: [String: [AudioObjectID]] = [:]
     @ObservationIgnored private var detected: [DetectedAudioApp] = []
+    // アプリID → 音が止まった時刻（猶予時間の計算用）
+    @ObservationIgnored private var stoppedAt: [String: Date] = [:]
+    @ObservationIgnored private var graceExpiryTask: Task<Void, Never>?
     @ObservationIgnored private var chromeBridge: ChromeTabBridge?
     // Chrome 拡張から届いた最新のタブ一覧
     @ObservationIgnored private var chromeTabs: [AudioTab] = []
@@ -86,7 +94,7 @@ final class MixerModel {
             onDeviceChange: { [weak self] in
                 guard let self else { return }
                 readMasterVolume()
-                taps.outputDeviceChanged(gains: gains, processes: processes)
+                taps.outputDeviceChanged(gains: gains, processes: processes, activeAppIDs: activeAppIDs)
             },
             onVolumeChange: { [weak self] in
                 self?.readMasterVolume()
@@ -136,9 +144,43 @@ final class MixerModel {
     }
 
     private func update(with detected: [DetectedAudioApp]) {
+        let wasOutputting = Set(self.detected.filter(\.isOutputting).map(\.id))
+        let isOutputting = Set(detected.filter(\.isOutputting).map(\.id))
+        let now = Date()
+        for id in wasOutputting.subtracting(isOutputting) {
+            stoppedAt[id] = now
+        }
+        for id in isOutputting {
+            stoppedAt[id] = nil
+        }
+
         self.detected = detected
         processes = Dictionary(uniqueKeysWithValues: detected.map { ($0.id, $0.processObjectIDs) })
+        // 終了したアプリは猶予なしで消す
+        stoppedAt = stoppedAt.filter { processes[$0.key] != nil }
         rebuildApps()
+    }
+
+    /// 音を出している、または止まってから猶予時間内のアプリ
+    private var activeAppIDs: Set<String> {
+        let now = Date()
+        let recentlyStopped = stoppedAt.filter { now.timeIntervalSince($0.value) < Self.idleGracePeriod }.keys
+        return Set(detected.filter(\.isOutputting).map(\.id)).union(recentlyStopped)
+    }
+
+    /// 猶予時間が切れる頃に一覧を作り直し、行を消して音量調整を止める
+    private func scheduleGraceExpiry() {
+        graceExpiryTask?.cancel()
+        let now = Date()
+        stoppedAt = stoppedAt.filter { now.timeIntervalSince($0.value) < Self.idleGracePeriod }
+        guard let earliest = stoppedAt.values.min() else { return }
+
+        let delay = Self.idleGracePeriod - now.timeIntervalSince(earliest)
+        graceExpiryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            self?.rebuildApps()
+        }
     }
 
     /// 検出結果・保存した設定・Chrome のタブから、表示する一覧を作り直す
@@ -146,9 +188,11 @@ final class MixerModel {
         isRebuildingApps = true
         defer { isRebuildingApps = false }
 
+        scheduleGraceExpiry()
+        let active = activeAppIDs
         apps = detected
             // Chrome はタブをすべてミュートすると音が止まるので、タブがある間は表示し続ける
-            .filter { $0.isOutputting || ($0.id == Self.chromeID && !chromeTabs.isEmpty) }
+            .filter { active.contains($0.id) || ($0.id == Self.chromeID && !chromeTabs.isEmpty) }
             .map { detected in
                 var app = AudioApp(id: detected.id, name: detected.name)
                 if let setting = settings[detected.id] {
@@ -160,6 +204,7 @@ final class MixerModel {
                 }
                 return app
             }
+        Self.logger.debug("表示中: \(self.apps.map(\.id), privacy: .public)")
     }
 
     private func appsDidChange(from oldApps: [AudioApp]) {
@@ -212,7 +257,7 @@ final class MixerModel {
             settings = newSettings
             SettingsStore.save(settings)
         }
-        taps.sync(gains: gains, processes: processes)
+        taps.sync(gains: gains, processes: processes, activeAppIDs: activeAppIDs)
     }
 
     /// 音量キーなど、外で変わった音量をスライダーに反映する
