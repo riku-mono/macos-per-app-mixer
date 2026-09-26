@@ -35,6 +35,11 @@ struct MixerView: View {
                 AppVolumeRow(app: $app)
             }
 
+            if ChromeExtensionInstaller.isChromeInstalled {
+                Divider()
+                ChromeExtensionSection(isConnected: model.isChromeExtensionConnected)
+            }
+
             Divider()
 
             // フッター
@@ -156,6 +161,60 @@ struct TabVolumeRow: View {
         }
         // 親がミュート中は子もまとめて薄くする
         .opacity(isParentMuted ? 0.35 : 1)
+    }
+}
+
+/// Chrome 拡張の接続状態と、読み込み手順の案内
+struct ChromeExtensionSection: View {
+    let isConnected: Bool
+    @State private var isShowingSteps = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(isConnected ? Color.green : Color.secondary)
+                    .frame(width: 7, height: 7)
+                Text(isConnected ? "Chrome 拡張: 接続中" : "Chrome 拡張: 未接続")
+                    .font(.caption)
+                Spacer()
+                if !isConnected {
+                    Button(isShowingSteps ? "閉じる" : "追加…") {
+                        withAnimation(.snappy) { isShowingSteps.toggle() }
+                    }
+                    .controlSize(.small)
+                }
+            }
+            .help("Chrome のタブごとに音量とミュートを操作するための拡張")
+            .accessibilityElement(children: .combine)
+
+            // つながったら手順は自動で消える
+            if isShowingSteps && !isConnected {
+                VStack(alignment: .leading, spacing: 6) {
+                    step(1) {
+                        Button("Chrome と拡張フォルダを開く") {
+                            ChromeExtensionInstaller.prepareInstall()
+                        }
+                    }
+                    step(2) { Text("拡張機能ページ右上の「デベロッパー モード」をオン") }
+                    step(3) { Text("Finder の「ChromeExtension」フォルダを拡張機能ページへドラッグ") }
+                    step(4) { Text("音を出しているタブを再読み込み") }
+                }
+                .font(.caption)
+                .controlSize(.small)
+                .padding(.leading, 13)
+            }
+        }
+    }
+
+    private func step(_ number: Int, @ViewBuilder content: () -> some View) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text("\(number).")
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+            content()
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 

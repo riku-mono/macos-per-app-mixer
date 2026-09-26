@@ -6,8 +6,13 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		322E8363306708D0005FE454 /* ChromeExtension in Resources */ = {isa = PBXBuildFile; fileRef = 322E8362306708D0005FE454 /* ChromeExtension */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		322E833E306708CF005FE454 /* Mixer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mixer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		322E8362306708D0005FE454 /* ChromeExtension */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ChromeExtension; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -44,6 +49,7 @@
 			isa = PBXGroup;
 			children = (
 				322E8340306708CF005FE454 /* Mixer */,
+				322E8362306708D0005FE454 /* ChromeExtension */,
 				322E833F306708CF005FE454 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -115,6 +121,7 @@
 		322E833C306708CF005FE454 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
+				322E8363306708D0005FE454 /* ChromeExtension in Resources */,
 			);
 		};
 /* End PBXResourcesBuildPhase section */
@@ -251,10 +258,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Mixer/Mixer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -283,10 +292,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Mixer/Mixer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;

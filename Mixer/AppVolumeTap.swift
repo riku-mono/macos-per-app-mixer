@@ -151,7 +151,7 @@ final class AppVolumeTapManager {
         self.outputUID = outputUID
 
         // 100% に戻った・終了したアプリの Tap を外す
-        for appID in taps.keys where !(gains[appID].map(Self.needsTap) ?? false) || processes[appID] == nil {
+        for appID in taps.keys where !(gains[appID].map { Self.needsTap($0) } ?? false) || processes[appID] == nil {
             taps[appID] = nil
         }
 
